@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { AtelierContentProvider, useAtelierContent, type AdminTab } from './context/AtelierContentContext'
 import { MediaUploader } from './components/admin/MediaUploader'
+import { resolveMediaUrl } from './utils/resolveMedia'
 import type { ReelItem, LookbookItem, HeroSlide, ConciergeCard, TestimonialItem, ModelItem } from './types/atelierContent'
 
 const AdminDeskView: React.FC = () => {
@@ -63,6 +64,7 @@ const AdminDeskView: React.FC = () => {
     exportJson,
     importJson,
     publishToGitHub,
+    easySave,
   } = useAtelierContent()
 
   // Passcode Gate State
@@ -121,10 +123,32 @@ const AdminDeskView: React.FC = () => {
     setIsAddingModel(false)
   }
 
-  // GitHub Publish State
+  // Easy 1-Click Live Save State
+  const [isSavingLive, setIsSavingLive] = useState(false)
+  const [saveBanner, setSaveBanner] = useState<{ type: 'success' | 'error'; text: string; link?: string } | null>(null)
+
+  const handleEasySave = async () => {
+    setIsSavingLive(true)
+    setSaveBanner(null)
+    const result = await easySave()
+    setIsSavingLive(false)
+    if (result.success) {
+      setSaveBanner({
+        type: 'success',
+        text: 'Changes saved! The live website (https://leeana.in) is updating automatically.',
+        link: result.commitUrl,
+      })
+    } else {
+      setSaveBanner({
+        type: 'error',
+        text: result.message || 'Failed to save changes. Please try again.',
+      })
+    }
+  }
+
+  // Optional custom PAT state for advanced developers
   const [githubToken, setGithubToken] = useState(() => localStorage.getItem('leeana_gh_pat') || '')
-  const [isPublishing, setIsPublishing] = useState(false)
-  const [publishStatus, setPublishStatus] = useState<{ success?: boolean; message?: string; commitUrl?: string } | null>(null)
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
 
   // Media Playback Testing State
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null)
@@ -240,19 +264,9 @@ const AdminDeskView: React.FC = () => {
     setIsAddingLookbook(false)
   }
 
-  // --- DIRECT GITHUB PUBLISH HANDLER ---
+  // --- 1-CLICK EASY SAVE HANDLER ---
   const handlePublish = async () => {
-    if (!githubToken.trim()) {
-      alert('Please enter a GitHub Personal Access Token (PAT) with repo write permissions.')
-      return
-    }
-    localStorage.setItem('leeana_gh_pat', githubToken.trim())
-    setIsPublishing(true)
-    setPublishStatus(null)
-
-    const result = await publishToGitHub(githubToken.trim())
-    setIsPublishing(false)
-    setPublishStatus(result)
+    await handleEasySave()
   }
 
   return (
@@ -275,6 +289,26 @@ const AdminDeskView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5 sm:gap-3">
+          {/* 1-Click Easy Save Button */}
+          <button
+            onClick={handleEasySave}
+            disabled={isSavingLive}
+            title="Save all changes directly to the live site (leeana.in)"
+            className="apple-press px-4 py-2 rounded-full bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-semibold tracking-wider uppercase transition-all shadow-lg shadow-emerald-500/25 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+          >
+            {isSavingLive ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Save to Live Site</span>
+              </>
+            )}
+          </button>
+
           {/* Sync from GitHub Button */}
           <button
             onClick={fetchFromLiveGitHub}
@@ -316,6 +350,39 @@ const AdminDeskView: React.FC = () => {
         </div>
       </header>
 
+      {/* Global Save Notification Banner */}
+      {saveBanner && (
+        <div
+          className={`px-6 py-3 border-b text-xs flex items-center justify-between transition-all ${
+            saveBanner.type === 'success'
+              ? 'bg-emerald-950/80 border-emerald-500/30 text-emerald-200'
+              : 'bg-red-950/80 border-red-500/30 text-red-200'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="font-medium">{saveBanner.text}</span>
+            {saveBanner.link && (
+              <a
+                href={saveBanner.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline ml-2 inline-flex items-center gap-1 opacity-80 hover:opacity-100"
+              >
+                <span>View Live Commit</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+          </div>
+          <button
+            onClick={() => setSaveBanner(null)}
+            className="text-white/60 hover:text-white p-1 rounded-full cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Main Tab Navigation Bar */}
       <div className="px-6 py-2.5 border-b border-white/[0.08] bg-[#09090e] flex items-center gap-2 overflow-x-auto scrollbar-none shrink-0">
         {[
@@ -330,7 +397,7 @@ const AdminDeskView: React.FC = () => {
           { id: 'concierge', label: 'Concierge Cards', icon: Layers, count: conciergeCards.length },
           { id: 'models', label: 'Faces of Leeana', icon: Eye, count: models.length },
           { id: 'reviews', label: 'Client Reviews', icon: MessageSquare, count: testimonials.length },
-          { id: 'publish', label: 'Publish & Sync', icon: Globe },
+          { id: 'publish', label: 'Save & Sync', icon: Globe },
         ].map((tab) => {
           const Icon = tab.icon
           const isActive = activeAdminTab === tab.id
@@ -526,8 +593,8 @@ const AdminDeskView: React.FC = () => {
                     <div className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-black/60 border border-white/10 group">
                       {reel.videoSrc ? (
                         <video
-                          src={reel.videoSrc}
-                          poster={reel.posterSrc}
+                          src={resolveMediaUrl(reel.videoSrc)}
+                          poster={resolveMediaUrl(reel.posterSrc)}
                           playsInline
                           muted
                           loop
@@ -536,7 +603,7 @@ const AdminDeskView: React.FC = () => {
                         />
                       ) : (
                         <img
-                          src={reel.posterSrc || '/assets/hero_jewellery_4k.jpg'}
+                          src={resolveMediaUrl(reel.posterSrc || '/assets/hero_jewellery_4k.jpg')}
                           alt={reel.title}
                           className="w-full h-full object-cover"
                         />
@@ -801,7 +868,7 @@ const AdminDeskView: React.FC = () => {
                         >
                           <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-black border border-white/5">
                             <img
-                              src={item.image}
+                              src={resolveMediaUrl(item.image)}
                               alt={item.title}
                               className="w-full h-full object-cover"
                             />
@@ -875,8 +942,8 @@ const AdminDeskView: React.FC = () => {
                   <div className="relative aspect-[16/10] rounded-2xl overflow-hidden bg-black border border-white/10">
                     {slide.videoSrc ? (
                       <video
-                        src={slide.videoSrc}
-                        poster={slide.posterSrc}
+                        src={resolveMediaUrl(slide.videoSrc)}
+                        poster={resolveMediaUrl(slide.posterSrc)}
                         playsInline
                         muted
                         loop
@@ -884,7 +951,7 @@ const AdminDeskView: React.FC = () => {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <img src={slide.posterSrc} alt={slide.title} className="w-full h-full object-cover" />
+                      <img src={resolveMediaUrl(slide.posterSrc)} alt={slide.title} className="w-full h-full object-cover" />
                     )}
                     <div className="absolute top-2.5 left-2.5 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/15 text-[10px] text-white/70 tracking-widest uppercase">
                       {slide.discipline}
@@ -954,7 +1021,7 @@ const AdminDeskView: React.FC = () => {
                   className="rounded-3xl border border-white/10 bg-[#09090d] p-5 space-y-4 hover:border-white/20 transition-all"
                 >
                   <div className="relative aspect-[16/10] rounded-2xl overflow-hidden bg-black border border-white/10">
-                    <img src={card.image} alt={card.title} className="w-full h-full object-cover" />
+                    <img src={resolveMediaUrl(card.image)} alt={card.title} className="w-full h-full object-cover" />
                     <div className="absolute top-2.5 left-2.5 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/15 text-[10px] text-white/70 tracking-widest uppercase">
                       {card.protocol}
                     </div>
@@ -1096,7 +1163,7 @@ const AdminDeskView: React.FC = () => {
                     {/* Image Preview & Order Controls */}
                     <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-black/60 border border-white/10">
                       <img
-                        src={m.img}
+                        src={resolveMediaUrl(m.img)}
                         alt={m.name}
                         className="w-full h-full object-cover"
                       />
@@ -1199,7 +1266,7 @@ const AdminDeskView: React.FC = () => {
                 >
                   <div className="flex gap-4 items-start">
                     <div className="w-16 h-16 rounded-full overflow-hidden bg-black shrink-0 border border-white/10">
-                      <img src={test.img} alt={test.name} className="w-full h-full object-cover" />
+                      <img src={resolveMediaUrl(test.img)} alt={test.name} className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-1 space-y-2">
                       <input
@@ -1255,59 +1322,45 @@ const AdminDeskView: React.FC = () => {
               </p>
             </div>
 
-            {/* Direct GitHub Publish Card */}
+            {/* Direct 1-Click Live Save Card */}
             <div className="rounded-3xl border border-white/20 bg-gradient-to-br from-[#0c0c14] to-[#07070a] p-6 sm:p-8 space-y-6 shadow-2xl">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <span className="text-[10px] font-medium tracking-[0.2em] uppercase text-white/50 block mb-1">
-                    LIVE AUTOMATED DEPLOYMENT
+                  <span className="text-[10px] font-medium tracking-[0.2em] uppercase text-emerald-400 block mb-1 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    LIVE PRODUCTION BRIDGE ACTIVE
                   </span>
-                  <h4 className="text-xl font-light text-white">Publish Directly to Leeana.in</h4>
+                  <h4 className="text-xl sm:text-2xl font-light text-white">Save Changes to Live Website</h4>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white">
-                  <Globe className="w-5 h-5" />
+                <div className="w-12 h-12 rounded-2xl bg-white/[0.06] border border-white/10 flex items-center justify-center text-white shrink-0">
+                  <Globe className="w-6 h-6 text-emerald-400" />
                 </div>
               </div>
 
               <p className="text-xs text-white/70 font-light leading-relaxed">
-                Clicking publish will commit the updated media catalog directly to the GitHub repository (<code className="text-white/90">tanishch25/leeana-luxury-atelier</code>). GitHub Actions will automatically rebuild and deploy the new imagery and reels to <span className="text-white font-medium">https://leeana.in</span> in approximately 40 seconds.
+                Clicking the button below instantly publishes your edits directly to the live website (<span className="text-white font-medium">https://leeana.in</span>). All newly posted reels, updated lookbook photos, model roster adjustments, and client reviews will go live automatically without requiring any technical configuration.
               </p>
 
-              <div className="space-y-2">
-                <label className="text-[11px] font-medium tracking-[0.16em] uppercase text-white/70 block">
-                  GitHub Personal Access Token (PAT)
-                </label>
-                <input
-                  type="password"
-                  value={githubToken}
-                  onChange={(e) => setGithubToken(e.target.value)}
-                  placeholder="github_pat_..."
-                  className="w-full px-4 py-3 rounded-2xl bg-white/[0.04] border border-white/15 text-xs text-white placeholder-white/30 focus:outline-none focus:border-white transition-colors font-mono"
-                />
-                <span className="text-[10px] text-white/40 block">
-                  Token needs repository <code className="text-white/60">contents: write</code> permission. It is stored securely in your browser's local storage.
-                </span>
-              </div>
-
-              {publishStatus && (
+              {/* Status Alert */}
+              {saveBanner && (
                 <div
                   className={`p-4 rounded-2xl text-xs font-light leading-relaxed flex items-start gap-3 border ${
-                    publishStatus.success
+                    saveBanner.type === 'success'
                       ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
                       : 'bg-red-500/10 border-red-500/30 text-red-200'
                   }`}
                 >
-                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
                   <div className="space-y-1">
-                    <p className="font-medium">{publishStatus.message}</p>
-                    {publishStatus.commitUrl && (
+                    <p className="font-medium">{saveBanner.text}</p>
+                    {saveBanner.link && (
                       <a
-                        href={publishStatus.commitUrl}
+                        href={saveBanner.link}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="underline inline-flex items-center gap-1 opacity-80 hover:opacity-100"
                       >
-                        <span>View Commit on GitHub</span>
+                        <span>View Live Commit on GitHub</span>
                         <ExternalLink className="w-3 h-3" />
                       </a>
                     )}
@@ -1315,23 +1368,57 @@ const AdminDeskView: React.FC = () => {
                 </div>
               )}
 
+              {/* Big 1-Click Save Action */}
               <button
-                onClick={handlePublish}
-                disabled={isPublishing}
-                className="apple-press w-full py-4 rounded-2xl bg-white text-black font-semibold text-xs tracking-[0.18em] uppercase hover:bg-white/90 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-2xl cursor-pointer"
+                onClick={handleEasySave}
+                disabled={isSavingLive}
+                className="apple-press w-full py-4 sm:py-5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs sm:text-sm tracking-[0.16em] uppercase disabled:opacity-50 transition-all flex items-center justify-center gap-2.5 shadow-xl shadow-emerald-500/20 cursor-pointer"
               >
-                {isPublishing ? (
+                {isSavingLive ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Publishing to Leeana.in...</span>
+                    <span>Saving to Leeana.in Live Website...</span>
                   </>
                 ) : (
                   <>
-                    <Globe className="w-4 h-4" />
-                    <span>Publish Live Changes Now</span>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Save All Changes to Live Website</span>
                   </>
                 )}
               </button>
+
+              {/* Advanced Settings Collapsible (Optional) */}
+              <div className="pt-2 border-t border-white/[0.08]">
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+                  className="text-[11px] text-white/40 hover:text-white/80 transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Sliders className="w-3 h-3" />
+                  <span>{showAdvancedSettings ? 'Hide Advanced Settings' : 'Advanced Configuration (Optional)'}</span>
+                </button>
+
+                {showAdvancedSettings && (
+                  <div className="mt-4 p-4 rounded-2xl bg-white/[0.02] border border-white/10 space-y-3">
+                    <label className="text-[10px] uppercase tracking-wider text-white/50 block">
+                      Custom GitHub Access Token (Override Default)
+                    </label>
+                    <input
+                      type="password"
+                      value={githubToken}
+                      onChange={(e) => {
+                        setGithubToken(e.target.value)
+                        localStorage.setItem('leeana_gh_pat', e.target.value.trim())
+                      }}
+                      placeholder="Optional custom PAT (defaults to studio authorized token)"
+                      className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-xs text-white placeholder-white/30 focus:outline-none focus:border-white font-mono"
+                    />
+                    <span className="text-[10px] text-white/30 block">
+                      Leave empty to automatically use the pre-authorized studio synchronization key.
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Offline Backups & JSON Control Card */}

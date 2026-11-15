@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react'
 import { Upload, Link as LinkIcon, Camera, Play, Check } from 'lucide-react'
+import { resolveMediaUrl } from '../../utils/resolveMedia'
 
 interface MediaUploaderProps {
   label: string
@@ -155,14 +156,14 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({
             {accept === 'video' ? (
               <video
                 ref={videoPreviewRef}
-                src={value}
+                src={resolveMediaUrl(value)}
                 muted
                 playsInline
                 crossOrigin="anonymous"
                 className="w-full h-full object-cover"
               />
             ) : (
-              <img src={value} alt="Preview" className="w-full h-full object-cover" />
+              <img src={resolveMediaUrl(value)} alt="Preview" className="w-full h-full object-cover" />
             )}
           </div>
           <div className="flex-1 min-w-0">
