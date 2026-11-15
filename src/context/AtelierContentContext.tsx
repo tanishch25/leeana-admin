@@ -118,7 +118,7 @@ export const AtelierContentProvider: React.FC<{ children: React.ReactNode }> = (
     try {
       // 1. Try production live custom domain https://leeana.in/atelierContent.json with cache-busting
       try {
-        const liveRes = await fetch(`https://leeana.in/atelierContent.json?t=${Date.now()}`)
+        const liveRes = await fetch(`https://leeana.in/atelierContent.json?t=${Date.now()}`, { cache: 'no-store' })
         if (liveRes.ok) {
           const liveJson = await liveRes.json()
           if (liveJson && liveJson.reels && liveJson.lookbookColumns) {
@@ -136,7 +136,7 @@ export const AtelierContentProvider: React.FC<{ children: React.ReactNode }> = (
       }
 
       // 2. Try raw GitHub URL with cache-busting
-      const res = await fetch(`${RAW_CONTENT_URL}?t=${Date.now()}`)
+      const res = await fetch(`${RAW_CONTENT_URL}?t=${Date.now()}`, { cache: 'no-store' })
       if (res.ok) {
         const rawJson = await res.json()
         if (rawJson && rawJson.reels && rawJson.lookbookColumns) {
@@ -151,7 +151,7 @@ export const AtelierContentProvider: React.FC<{ children: React.ReactNode }> = (
       }
       
       // 3. Fallback to local public/atelierContent.json
-      const localRes = await fetch(`./atelierContent.json?t=${Date.now()}`)
+      const localRes = await fetch(`./atelierContent.json?t=${Date.now()}`, { cache: 'no-store' })
       if (localRes.ok) {
         const localJson = await localRes.json()
         if (localJson && localJson.reels) {
