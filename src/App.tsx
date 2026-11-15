@@ -934,68 +934,103 @@ const AdminDeskView: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {heroSlides.map((slide) => (
-                <div
-                  key={slide.id}
-                  className="rounded-3xl border border-white/10 bg-[#09090d] p-5 space-y-4 hover:border-white/20 transition-all"
-                >
-                  <div className="relative aspect-[16/10] rounded-2xl overflow-hidden bg-black border border-white/10">
-                    {slide.videoSrc ? (
-                      <video
-                        src={resolveMediaUrl(slide.videoSrc)}
-                        poster={resolveMediaUrl(slide.posterSrc)}
-                        playsInline
-                        muted
-                        loop
-                        controls
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <img src={resolveMediaUrl(slide.posterSrc)} alt={slide.title} className="w-full h-full object-cover" />
-                    )}
-                    <div className="absolute top-2.5 left-2.5 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/15 text-[10px] text-white/70 tracking-widest uppercase">
-                      {slide.discipline}
+              {(heroSlides && heroSlides.length > 0 ? heroSlides : []).map((slide) => {
+                const heroPoster = (slide as any).poster || (slide as any).posterSrc || ''
+                const heroVideo = slide.videoSrc && !slide.videoSrc.includes('shotsquare') ? slide.videoSrc : ''
+                const heroTag = slide.tag || (slide as any).discipline || 'HERO STAGE'
+
+                return (
+                  <div
+                    key={slide.id}
+                    className="rounded-3xl border border-white/10 bg-[#09090d] p-5 space-y-4 hover:border-white/20 transition-all flex flex-col justify-between"
+                  >
+                    <div className="space-y-4">
+                      {/* Media Preview */}
+                      <div className="relative aspect-[16/10] rounded-2xl overflow-hidden bg-black border border-white/10">
+                        {heroVideo ? (
+                          <video
+                            src={resolveMediaUrl(heroVideo)}
+                            poster={resolveMediaUrl(heroPoster)}
+                            playsInline
+                            muted
+                            loop
+                            controls
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <img
+                            src={resolveMediaUrl(heroPoster)}
+                            alt={slide.title}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                        <div className="absolute top-2.5 left-2.5 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/15 text-[10px] text-white/70 tracking-widest uppercase">
+                          {heroTag}
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-[10px] uppercase tracking-wider text-white/40 block mb-1">
+                            Discipline Kicker
+                          </label>
+                          <input
+                            type="text"
+                            value={heroTag}
+                            onChange={(e) =>
+                              updateHeroSlide(slide.id, {
+                                tag: e.target.value,
+                                discipline: e.target.value,
+                              } as any)
+                            }
+                            className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] uppercase tracking-wider text-white/40 block mb-1">Title</label>
+                          <input
+                            type="text"
+                            value={slide.title}
+                            onChange={(e) => updateHeroSlide(slide.id, { title: e.target.value })}
+                            className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white font-medium"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] uppercase tracking-wider text-white/40 block mb-1">Subtitle</label>
+                          <textarea
+                            rows={2}
+                            value={slide.subtitle}
+                            onChange={(e) => updateHeroSlide(slide.id, { subtitle: e.target.value })}
+                            className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white/80 resize-none"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <MediaUploader
+                            label="Hero Poster (4K Visual)"
+                            value={heroPoster}
+                            onChange={(val) =>
+                              updateHeroSlide(slide.id, {
+                                poster: val,
+                                posterSrc: val,
+                              } as any)
+                            }
+                            accept="image"
+                          />
+                          <MediaUploader
+                            label="Video URL / Upload (Optional)"
+                            value={heroVideo}
+                            onChange={(val) => updateHeroSlide(slide.id, { videoSrc: val })}
+                            accept="video"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-[10px] uppercase tracking-wider text-white/40 block mb-1">Title</label>
-                      <input
-                        type="text"
-                        value={slide.title}
-                        onChange={(e) => updateHeroSlide(slide.id, { title: e.target.value })}
-                        className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white font-medium"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-[10px] uppercase tracking-wider text-white/40 block mb-1">Subtitle</label>
-                      <input
-                        type="text"
-                        value={slide.subtitle}
-                        onChange={(e) => updateHeroSlide(slide.id, { subtitle: e.target.value })}
-                        className="w-full px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white/80"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <MediaUploader
-                        label="Video URL / Upload"
-                        value={slide.videoSrc}
-                        onChange={(val) => updateHeroSlide(slide.id, { videoSrc: val })}
-                        accept="video"
-                      />
-                      <MediaUploader
-                        label="Poster / Fallback Image"
-                        value={slide.posterSrc}
-                        onChange={(val) => updateHeroSlide(slide.id, { posterSrc: val })}
-                        accept="image"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}
